@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>디지털 논리회로 시뮬레이터 & 교육 도구</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .canvas-grid {
+            background-size: 20px 20px;
+            background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+        }
+        .dark .canvas-grid {
+            background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+        /* KakaoTalk & Mobile Touch Optimizations */
+        .touch-none {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen h-[100dvh] flex flex-col overflow-hidden select-none">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-800/90 backdrop-blur border-b border-slate-700 px-4 sm:px-6 py-2.5 flex justify-between items-center z-20 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-blue-600 rounded-lg text-white shadow-lg shadow-blue-500/30">
+                <i class="fa-solid fa-microchip text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-base sm:text-lg font-bold text-white leading-tight">디지털 논리회로 시뮬레이터</h1>
+                <p class="text-[10px] sm:text-xs text-slate-400">논리 게이트 원리 학습 & 회로 실습 도구</p>
+            </div>
+        </div>
+
+        <!-- Mode Selector -->
+        <div class="flex bg-slate-900/80 p-1 rounded-xl border border-slate-700">
+            <button id="tab-learn" onclick="switchMode('learn')" class="px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 bg-blue-600 text-white shadow">
+                <i class="fa-solid fa-graduation-cap mr-1.5"></i>기본 학습
+            </button>
+            <button id="tab-lab" onclick="switchMode('lab')" class="px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-diagram-project mr-1.5"></i>자유 설계
+            </button>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button onclick="openHelpModal()" class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-slate-200 font-medium transition">
+                <i class="fa-solid fa-circle-question sm:mr-1"></i><span class="hidden sm:inline">사용법</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 flex overflow-hidden relative">
+
+        <!-- ================= MODE 1: GATE LEARNING MODE ================= -->
+        <div id="mode-learn" class="w-full flex flex-col lg:flex-row h-full">
+            <!-- Left Panel: Gate Selector & Properties -->
+            <div class="w-full lg:w-80 bg-slate-800 border-r border-slate-700 p-5 flex flex-col justify-between overflow-y-auto">
+                <div>
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">논리 게이트 선택</h2>
+                    <div class="grid grid-cols-2 gap-2 mb-5" id="gate-selector-buttons">
+                        <!-- Dynamically populated via JS -->
+                    </div>
+
+                    <!-- Input Count Selector (NEW) -->
+                    <div id="input-count-container" class="mb-5 bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+                        <div class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
+                            <span><i class="fa-solid fa-sliders text-blue-400 mr-1.5"></i>입력 단자 수 선택</span>
+                            <span id="current-input-badge" class="text-[10px] bg-blue-900/80 text-blue-300 px-2 py-0.5 rounded font-mono font-bold">2 Inputs</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5" id="input-count-buttons">
+                            <button onclick="setLearnInputCount(2)" id="btn-inputs-2" class="py-1.5 text-xs font-mono font-bold rounded bg-blue-600 text-white transition">2개</button>
+                            <button onclick="setLearnInputCount(3)" id="btn-inputs-3" class="py-1.5 text-xs font-mono font-bold rounded bg-slate-800 text-slate-400 hover:bg-slate-700 transition">3개</button>
+                            <button onclick="setLearnInputCount(4)" id="btn-inputs-4" class="py-1.5 text-xs font-mono font-bold rounded bg-slate-800 text-slate-400 hover:bg-slate-700 transition">4개</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-700/60 mb-6">
+                        <h3 id="learn-gate-name" class="text-xl font-bold text-blue-400 mb-1">AND Gate</h3>
+                        <p id="learn-gate-desc" class="text-xs text-slate-300 leading-relaxed mb-3">모든 입력이 HIGH(1)일 때만 출력이 HIGH(1)가 됩니다.</p>
+                        <div class="text-xs font-mono bg-slate-950 p-2.5 rounded border border-slate-800">
+                            <span class="text-slate-400">논리식:</span> <span id="learn-gate-expression" class="text-emerald-400 font-bold">Y = A · B</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Info Box -->
+                <div class="bg-blue-950/40 border border-blue-800/40 rounded-xl p-4 text-xs text-blue-200">
+                    <div class="flex items-center space-x-2 mb-1 text-blue-400 font-semibold">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        <span>수업 활용 팁</span>
+                    </div>
+                    <p class="leading-relaxed">오른쪽 화면의 스위치를 클릭하여 입력을 전환해 보세요. 입력 단자 수를 3개나 4개로 늘려서 다중 입력 게이트의 특성을 진리표와 함께 학습할 수 있습니다.</p>
+                </div>
+            </div>
+
+            <!-- Middle Canvas Area: Interactive Gate Visualizer -->
+            <div class="flex-1 bg-slate-950 relative flex flex-col justify-center items-center p-8 overflow-hidden">
+                <div class="absolute inset-0 canvas-grid opacity-30"></div>
+
+                <div class="relative z-10 flex flex-col items-center max-w-2xl w-full">
+                    <!-- Dynamic Interactive Diagram -->
+                    <div class="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-8 shadow-2xl w-full backdrop-blur flex flex-col items-center">
+                        <div class="text-xs font-semibold text-slate-400 mb-6 tracking-wide uppercase flex items-center">
+                            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+                            실시간 동작 시뮬레이션
+                        </div>
+
+                        <!-- Circuit Interactive Area -->
+                        <div id="gate-interactive-container" class="flex items-center justify-between w-full my-4 px-4">
+                            <!-- JS will render inputs, SVG gate, and output LED here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Truth Table -->
+            <div class="w-full lg:w-96 bg-slate-800 border-l border-slate-700 p-5 flex flex-col">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">진리표 (Truth Table)</h2>
+                <div class="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-lg flex-1 max-h-72 overflow-y-auto">
+                    <table class="w-full text-center border-collapse">
+                        <thead class="sticky top-0 bg-slate-800 border-b border-slate-700 z-10">
+                            <tr id="truth-table-head" class="text-slate-300 text-xs font-mono">
+                                <!-- Dynamic headers -->
+                            </tr>
+                        </thead>
+                        <tbody id="truth-table-body" class="text-sm font-mono divide-y divide-slate-800/60">
+                            <!-- Dynamic rows -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Gate Timing/Waveform View -->
+                <div class="mt-4">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">신호 상태 브리핑</h2>
+                    <div id="status-panel" class="bg-slate-900 rounded-xl p-3 border border-slate-700 space-y-2 font-mono text-xs">
+                        <!-- Dynamic Status Rows -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ================= MODE 2: LAB (FREE DESIGN CANVAS) ================= -->
+        <div id="mode-lab" class="w-full h-full flex hidden">
+            <!-- Component Palette sidebar -->
+            <div class="w-64 bg-slate-800 border-r border-slate-700 flex flex-col z-10">
+                <div class="p-4 border-b border-slate-700">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">부품 팔레트</h2>
+                    <p class="text-xs text-slate-400">캔버스로 부품을 클릭하여 추가하세요.</p>
+                </div>
+
+                <div class="p-3 overflow-y-auto space-y-4 flex-1">
+                    <!-- Inputs -->
+                    <div>
+                        <span class="text-[11px] font-semibold text-slate-400 uppercase px-1">입력 장치</span>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <button onclick="addLabNode('SWITCH')" class="flex flex-col items-center justify-center p-3 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-slate-200 transition group">
+                                <i class="fa-solid fa-toggle-on text-xl text-blue-400 mb-1 group-hover:scale-110 transition-transform"></i>
+                                <span class="text-xs">스위치</span>
+                            </button>
+                            <button onclick="addLabNode('CLOCK')" class="flex flex-col items-center justify-center p-3 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-slate-200 transition group">
+                                <i class="fa-solid fa-wave-square text-xl text-amber-400 mb-1 group-hover:scale-110 transition-transform"></i>
+                                <span class="text-xs">클럭 (펄스)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Outputs -->
+                    <div>
+                        <span class="text-[11px] font-semibold text-slate-400 uppercase px-1">출력 장치</span>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <button onclick="addLabNode('OUTPUT')" class="flex flex-col items-center justify-center p-3 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-slate-200 transition group">
+                                <i class="fa-solid fa-lightbulb text-xl text-yellow-400 mb-1 group-hover:scale-110 transition-transform"></i>
+                                <span class="text-xs">LED (출력)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Logic Gates with Input Count options -->
+                    <div>
+                        <span class="text-[11px] font-semibold text-slate-400 uppercase px-1">논리 게이트</span>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <button onclick="addLabNode('AND', 2)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>AND</span><span class="text-[10px] text-blue-400">2-In</span>
+                            </button>
+                            <button onclick="addLabNode('AND', 3)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>AND</span><span class="text-[10px] text-emerald-400">3-In</span>
+                            </button>
+                            <button onclick="addLabNode('OR', 2)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>OR</span><span class="text-[10px] text-blue-400">2-In</span>
+                            </button>
+                            <button onclick="addLabNode('OR', 3)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>OR</span><span class="text-[10px] text-emerald-400">3-In</span>
+                            </button>
+                            <button onclick="addLabNode('NOT', 1)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>NOT</span><span class="text-[10px] text-slate-400">1-In</span>
+                            </button>
+                            <button onclick="addLabNode('NAND', 2)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>NAND</span><span class="text-[10px] text-blue-400">2-In</span>
+                            </button>
+                            <button onclick="addLabNode('NAND', 3)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>NAND</span><span class="text-[10px] text-emerald-400">3-In</span>
+                            </button>
+                            <button onclick="addLabNode('NOR', 2)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>NOR</span><span class="text-[10px] text-blue-400">2-In</span>
+                            </button>
+                            <button onclick="addLabNode('NOR', 3)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>NOR</span><span class="text-[10px] text-emerald-400">3-In</span>
+                            </button>
+                            <button onclick="addLabNode('XOR', 2)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>XOR</span><span class="text-[10px] text-blue-400">2-In</span>
+                            </button>
+                            <button onclick="addLabNode('XOR', 3)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>XOR</span><span class="text-[10px] text-emerald-400">3-In</span>
+                            </button>
+                            <button onclick="addLabNode('AND', 4)" class="p-2 bg-slate-900 hover:bg-slate-700/60 border border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-200 text-left flex items-center justify-between">
+                                <span>AND</span><span class="text-[10px] text-amber-400">4-In</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Presets for Class -->
+                    <div class="pt-2 border-t border-slate-700">
+                        <span class="text-[11px] font-semibold text-amber-400 uppercase px-1">수업용 회로 예제</span>
+                        <div class="space-y-1.5 mt-2">
+                            <button onclick="loadPreset('halfAdder')" class="w-full text-left px-3 py-2 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-800/40 rounded text-xs text-amber-200 transition flex items-center">
+                                <i class="fa-solid fa-folder-open mr-2 text-amber-400"></i>반가산기 (Half Adder)
+                            </button>
+                            <button onclick="loadPreset('fullAdder')" class="w-full text-left px-3 py-2 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-800/40 rounded text-xs text-amber-200 transition flex items-center">
+                                <i class="fa-solid fa-folder-open mr-2 text-amber-400"></i>전가산기 (Full Adder)
+                            </button>
+                            <button onclick="loadPreset('srLatch')" class="w-full text-left px-3 py-2 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-800/40 rounded text-xs text-amber-200 transition flex items-center">
+                                <i class="fa-solid fa-folder-open mr-2 text-amber-400"></i>SR 래치 (NOR 기반)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="flex-1 bg-slate-950 relative overflow-hidden flex flex-col">
+                <!-- Top Canvas Toolbar -->
+                <div class="h-12 bg-slate-900/80 border-b border-slate-800 px-4 flex justify-between items-center z-10 shrink-0">
+                    <div class="flex items-center space-x-2">
+                        <button onclick="clearLabCanvas()" class="px-3 py-1.5 rounded bg-rose-900/40 hover:bg-rose-800/60 border border-rose-700 text-xs text-rose-200 transition">
+                            <i class="fa-solid fa-trash-can mr-1"></i>캔버스 초기화
+                        </button>
+                    </div>
+
+                    <div class="text-xs text-slate-400 font-mono hidden md:block">
+                        <i class="fa-solid fa-circle-info mr-1 text-blue-400"></i>
+                        단자(포트)를 터치/클릭 후 드래그하여 선을 연결하세요. (선 클릭 시 삭제)
+                    </div>
+                </div>
+
+                <!-- Canvas Wrapper -->
+                <div id="lab-canvas-container" class="flex-1 relative canvas-grid overflow-hidden cursor-crosshair touch-none">
+                    <svg id="wires-svg" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                        <!-- Dynamic Wires Rendered Here -->
+                    </svg>
+                    <div id="nodes-layer" class="absolute inset-0 z-10 pointer-events-none">
+                        <!-- Dynamic Circuit Component Nodes -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Help / Instructions -->
+    <div id="modal-help" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <h3 class="text-lg font-bold text-white mb-3 flex items-center">
+                <i class="fa-solid fa-graduation-cap text-blue-400 mr-2"></i>수업 활용 안내
+            </h3>
+            <div class="text-sm text-slate-300 space-y-3 leading-relaxed">
+                <p><strong>1. 게이트 기본 학습 모드:</strong><br>논리 게이트(AND, OR, NOT, NAND 등)의 기본 개념을 설명할 때 사용하세요. 스위치 입력을 토글하면 진리표의 현재 상태가 실시간으로 하이라이트됩니다.</p>
+                <p><strong>2. 자유 회로 설계 모드:</strong><br>학습한 기본 게이트들을 조합하여 가산기, 플립플롭, MUX 등 복합 논리회로를 학생들이 직접 구성해볼 수 있습니다.</p>
+                <p><strong>3. 와이어(전선) 연결 방법:</strong><br>노드의 동그란 <b>출력 단자(오른쪽)</b>에서 시작하여 <b>입력 단자(왼쪽)</b>로 드래그하면 선이 연결됩니다.</p>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeHelpModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        // ==========================================
+        // DATA DEFINITIONS & MULTI-INPUT GATE LOGIC
+        // ==========================================
+        const GATES = {
+            AND: {
+                name: 'AND 게이트',
+                symbol: 'AND',
+                eval: (inputs) => inputs.every(val => val),
+                getExpression: (n) => 'Y = ' + Array.from({length: n}, (_, i) => String.fromCharCode(65 + i)).join(' · ')
+            },
+            OR: {
+                name: 'OR 게이트',
+                symbol: 'OR',
+                eval: (inputs) => inputs.some(val => val),
+                getExpression: (n) => 'Y = ' + Array.from({length: n}, (_, i) => String.fromCharCode(65 + i)).join(' + ')
+            },
+            NOT: {
+                name: 'NOT 게이트 (Inverter)',
+                symbol: 'NOT',
+                eval: (inputs) => !inputs[0],
+                getExpression: () => 'Y = A̅'
+            },
+            NAND: {
+                name: 'NAND 게이트',
+                symbol: 'NAND',
+                eval: (inputs) => !inputs.every(val => val),
+                getExpression: (n) => 'Y = (' + Array.from({length: n}, (_, i) => String.fromCharCode(65 + i)).join(' · ') + ')̅'
+            },
+            NOR: {
+                name: 'NOR 게이트',
+                symbol: 'NOR',
+                eval: (inputs) => !inputs.some(val => val),
+                getExpression: (n) => 'Y = (' + Array.from({length: n}, (_, i) => String.fromCharCode(65 + i)).join(' + ') + ')̅'
+            },
+            XOR: {
+                name: 'XOR 게이트 (Exclusive OR)',
+                symbol: 'XOR',
+                eval: (inputs) => inputs.reduce((acc, curr) => acc ^ (curr ? 1 : 0), 0) === 1,
+                getExpression: (n) => 'Y = ' + Array.from({length: n}, (_, i) => String.fromCharCode(65 + i)).join(' ⊕ ')
+            },
+            XNOR: {
+                name: 'XNOR 게이트',
+                symbol: 'XNOR',
+                eval: (inputs) => !(inputs.reduce((acc, curr) => acc ^ (curr ? 1 : 0), 0) === 1),
+                getExpression: (n) => 'Y = (' + Array.from({length: n}, (_, i) => String.fromCharCode(65 + i)).join(' ⊕ ') + ')̅'
+            }
+        };
+
+        // Current Learning Mode State
+        let currentLearnGate = 'AND';
+        let learnInputCount = 2; // Default 2 inputs
+        let learnInputs = [false, false, false, false]; // Up to 4 inputs (A, B, C, D)
+
+        // Mode Switching
+        function switchMode(mode) {
+            const learnTab = document.getElementById('tab-learn');
+            const labTab = document.getElementById('tab-lab');
+            const learnSec = document.getElementById('mode-learn');
+            const labSec = document.getElementById('mode-lab');
+
+            if (mode === 'learn') {
+                learnTab.className = "px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 bg-blue-600 text-white shadow";
+                labTab.className = "px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-slate-200";
+                learnSec.classList.remove('hidden');
+                labSec.classList.add('hidden');
+            } else {
+                labTab.className = "px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 bg-blue-600 text-white shadow";
+                learnTab.className = "px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-slate-200";
+                labSec.classList.remove('hidden');
+                learnSec.classList.add('hidden');
+            }
+        }
+
+        // ==========================================
+        // MODE 1: LEARNING MODE LOGIC
+        // ==========================================
+        function initLearningMode() {
+            renderGateButtons();
+            selectGate('AND');
+        }
+
+        function renderGateButtons() {
+            const container = document.getElementById('gate-selector-buttons');
+            container.innerHTML = '';
+
+            Object.keys(GATES).forEach(key => {
+                const btn = document.createElement('button');
+                btn.id = `btn-gate-${key}`;
+                btn.onclick = () => selectGate(key);
+                btn.className = `p-2.5 rounded-xl font-mono font-bold text-xs border transition flex flex-col items-center justify-center ${
+                    currentLearnGate === key 
+                    ? 'bg-blue-600 border-blue-400 text-white shadow-lg' 
+                    : 'bg-slate-900 border-slate-700/70 text-slate-300 hover:bg-slate-700/60'
+                }`;
+                btn.innerHTML = `<span>${key}</span>`;
+                container.appendChild(btn);
+            });
+        }
+
+        function selectGate(gateKey) {
+            currentLearnGate = gateKey;
+            const isNotGate = gateKey === 'NOT';
+            
+            // Toggle input count selector visibility for NOT gate
+            const inputCountContainer = document.getElementById('input-count-container');
+            if (isNotGate) {
+                inputCountContainer.style.display = 'none';
+                learnInputCount = 1;
+            } else {
+                inputCountContainer.style.display = 'block';
+                if (learnInputCount === 1) learnInputCount = 2; // Restore to 2 if was 1
+                updateInputCountButtonsUI();
+            }
+
+            // Update button styles
+            Object.keys(GATES).forEach(key => {
+                const btn = document.getElementById(`btn-gate-${key}`);
+                if (btn) {
+                    btn.className = key === gateKey
+                        ? "p-2.5 rounded-xl font-mono font-bold text-xs border transition flex flex-col items-center justify-center bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-600/30"
+                        : "p-2.5 rounded-xl font-mono font-bold text-xs border transition flex flex-col items-center justify-center bg-slate-900 border-slate-700/70 text-slate-300 hover:bg-slate-700/60";
+                }
+            });
+
+            const gate = GATES[gateKey];
+            document.getElementById('learn-gate-name').innerText = gate.name;
+            document.getElementById('learn-gate-desc').innerText = getGateDescription(gateKey, learnInputCount);
+            document.getElementById('learn-gate-expression').innerText = gate.getExpression(learnInputCount);
+
+            updateLearningDiagram();
+        }
+
+        function setLearnInputCount(count) {
+            if (currentLearnGate === 'NOT') return;
+            learnInputCount = count;
+            updateInputCountButtonsUI();
+            
+            const gate = GATES[currentLearnGate];
+            document.getElementById('learn-gate-desc').innerText = getGateDescription(currentLearnGate, learnInputCount);
+            document.getElementById('learn-gate-expression').innerText = gate.getExpression(learnInputCount);
+            
+            updateLearningDiagram();
+        }
+
+        function updateInputCountButtonsUI() {
+            document.getElementById('current-input-badge').innerText = `${learnInputCount} Inputs`;
+            [2, 3, 4].forEach(n => {
+                const btn = document.getElementById(`btn-inputs-${n}`);
+                if (btn) {
+                    btn.className = n === learnInputCount
+                        ? "py-1.5 text-xs font-mono font-bold rounded bg-blue-600 text-white shadow transition"
+                        : "py-1.5 text-xs font-mono font-bold rounded bg-slate-800 text-slate-400 hover:bg-slate-700 transition";
+                }
+            });
+        }
+
+        function getGateDescription(type, count) {
+            switch(type) {
+                case 'AND': return `${count}개 입력이 모두 1(HIGH)일 때만 출력이 1(HIGH)이 됩니다.`;
+                case 'OR': return `${count}개 입력 중 하나라도 1(HIGH)이면 출력이 1(HIGH)이 됩니다.`;
+                case 'NOT': return '입력 신호를 반전시킵니다. (0 ➔ 1, 1 ➔ 0)';
+                case 'NAND': return `AND 게이트의 반전입니다. ${count}개 입력이 모두 1일 때만 출력이 0(LOW)이 됩니다.`;
+                case 'NOR': return `OR 게이트의 반전입니다. ${count}개 모든 입력이 0일 때만 출력이 1(HIGH)이 됩니다.`;
+                case 'XOR': return `${count}개 입력 중 1(HIGH)의 개수가 홀수일 때 출력이 1(HIGH)이 됩니다.`;
+                case 'XNOR': return `${count}개 입력 중 1(HIGH)의 개수가 짝수(0개 포함)일 때 출력이 1(HIGH)이 됩니다.`;
+            }
+        }
+
+        function toggleLearnInput(index) {
+            learnInputs[index] = !learnInputs[index];
+            updateLearningDiagram();
+        }
+
+        function updateLearningDiagram() {
+            const gate = GATES[currentLearnGate];
+            const activeInputs = learnInputs.slice(0, learnInputCount);
+            const outputVal = gate.eval(activeInputs);
+
+            const container = document.getElementById('gate-interactive-container');
+            
+            // Generate Input Switches HTML
+            let inputsHTML = `<div class="flex flex-col space-y-4">`;
+            for (let i = 0; i < learnInputCount; i++) {
+                const label = String.fromCharCode(65 + i);
+                const val = learnInputs[i];
+                inputsHTML += `
+                    <div class="flex items-center space-x-3">
+                        <button onclick="toggleLearnInput(${i})" class="relative w-14 h-8 rounded-full p-1 transition-colors duration-200 focus:outline-none ${val ? 'bg-blue-600' : 'bg-slate-700'} shadow-inner">
+                            <div class="w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-200 ${val ? 'translate-x-6' : 'translate-x-0'} flex items-center justify-center font-mono font-bold text-[11px] ${val ? 'text-blue-600' : 'text-slate-600'}">
+                                ${val ? '1' : '0'}
+                            </div>
+                        </button>
+                        <span class="font-mono font-bold text-xs text-slate-300">입력 ${label}</span>
+                    </div>
+                `;
+            }
+            inputsHTML += `</div>`;
+
+            // SVG Logic Symbol Rendering
+            const svgSymbol = getGateSVG(currentLearnGate, activeInputs, outputVal);
+
+            // Output LED Visual
+            const outputHTML = `
+                <div class="flex flex-col items-center space-y-2">
+                    <div class="relative flex items-center justify-center">
+                        <div class="w-16 h-16 rounded-full border-4 ${outputVal ? 'border-amber-400 bg-amber-400 shadow-[0_0_35px_rgba(251,191,36,0.8)]' : 'border-slate-700 bg-slate-800'} transition-all duration-300 flex items-center justify-center">
+                            <i class="fa-solid fa-lightbulb text-2xl ${outputVal ? 'text-slate-950' : 'text-slate-600'}"></i>
+                        </div>
+                    </div>
+                    <span class="font-mono font-bold text-xs ${outputVal ? 'text-amber-400' : 'text-slate-500'}">
+                        출력 Y (${outputVal ? '1 / HIGH' : '0 / LOW'})
+                    </span>
+                </div>
+            `;
+
+            container.innerHTML = inputsHTML + svgSymbol + outputHTML;
+
+            // Update Truth Table
+            updateTruthTable(gate, learnInputCount, activeInputs);
+
+            // Update Status Panel
+            const statusPanel = document.getElementById('status-panel');
+            statusPanel.innerHTML = '';
+            
+            for (let i = 0; i < learnInputCount; i++) {
+                const label = String.fromCharCode(65 + i);
+                const val = learnInputs[i];
+                statusPanel.innerHTML += `
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400">입력 ${label} 상태:</span>
+                        <span class="px-2 py-0.5 rounded font-bold ${val ? 'bg-blue-900/80 text-blue-300 border border-blue-700' : 'bg-slate-800 text-slate-400'}">${val ? 'HIGH (1)' : 'LOW (0)'}</span>
+                    </div>
+                `;
+            }
+
+            statusPanel.innerHTML += `
+                <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
+                    <span class="text-slate-400">출력 Y 상태:</span>
+                    <span class="px-2.5 py-1 rounded font-bold text-xs ${outputVal ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]' : 'bg-slate-800 text-slate-500'}">${outputVal ? 'HIGH (1)' : 'LOW (0)'}</span>
+                </div>
+            `;
+        }
+
+        function updateTruthTable(gate, inputCount, activeInputs) {
+            const thead = document.getElementById('truth-table-head');
+            const tbody = document.getElementById('truth-table-body');
+            
+            // Header Generation
+            let headHTML = '';
+            for (let i = 0; i < inputCount; i++) {
+                headHTML += `<th class="py-2 px-2 border-b border-slate-700">입력 ${String.fromCharCode(65 + i)}</th>`;
+            }
+            headHTML += `<th class="py-2 px-2 border-b border-slate-700 text-blue-400">출력 Y</th>`;
+            thead.innerHTML = headHTML;
+
+            tbody.innerHTML = '';
+            const totalRows = Math.pow(2, inputCount);
+
+            for (let r = 0; r < totalRows; r++) {
+                const rowInputs = [];
+                for (let i = inputCount - 1; i >= 0; i--) {
+                    rowInputs.unshift(Boolean((r >> i) & 1));
+                }
+
+                const out = gate.eval(rowInputs);
+                const isActive = rowInputs.every((val, idx) => val === activeInputs[idx]);
+
+                const tr = document.createElement('tr');
+                tr.className = isActive ? 'bg-blue-600/30 font-bold text-blue-300 border-l-4 border-blue-500' : 'text-slate-400 hover:bg-slate-800/40';
+
+                let rowHTML = '';
+                rowInputs.forEach(val => {
+                    rowHTML += `<td class="py-1.5 px-2">${val ? 1 : 0}</td>`;
+                });
+                rowHTML += `<td class="py-1.5 px-2 ${out ? 'text-amber-400 font-bold' : 'text-slate-500'}">${out ? 1 : 0}</td>`;
+
+                tr.innerHTML = rowHTML;
+                tbody.appendChild(tr);
+            }
+        }
+
+        // SVG Gate Renderer supporting 1 to 4 inputs
+        function getGateSVG(type, activeInputs, out) {
+            const count = activeInputs.length;
+            const wireOutColor = out ? '#fbbf24' : '#475569';
+
+            let gateShape = '';
+            switch(type) {
+                case 'AND':
+                    gateShape = `<path d="M 50 20 L 80 20 A 30 30 0 0 1 80 80 L 50 80 Z" fill="#1e293b" stroke="#94a3b8" stroke-width="3"/>`;
+                    break;
+                case 'OR':
+                    gateShape = `<path d="M 45 20 Q 65 50 45 80 Q 80 80 100 50 Q 80 20 45 20 Z" fill="#1e293b" stroke="#94a3b8" stroke-width="3"/>`;
+                    break;
+                case 'NOT':
+                    gateShape = `
+                        <path d="M 50 20 L 90 50 L 50 80 Z" fill="#1e293b" stroke="#94a3b8" stroke-width="3"/>
+                        <circle cx="95" cy="50" r="5" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+                    `;
+                    break;
+                case 'NAND':
+                    gateShape = `
+                        <path d="M 50 20 L 75 20 A 30 30 0 0 1 75 80 L 50 80 Z" fill="#1e293b" stroke="#94a3b8" stroke-width="3"/>
+                        <circle cx="108" cy="50" r="5" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+                    `;
+                    break;
+                case 'NOR':
+                    gateShape = `
+                        <path d="M 45 20 Q 65 50 45 80 Q 80 80 98 50 Q 80 20 45 20 Z" fill="#1e293b" stroke="#94a3b8" stroke-width="3"/>
+                        <circle cx="104" cy="50" r="5" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+                    `;
+                    break;
+                case 'XOR':
+                    gateShape = `
+                        <path d="M 38 20 Q 58 50 38 80" fill="none" stroke="#94a3b8" stroke-width="3"/>
+                        <path d="M 48 20 Q 68 50 48 80 Q 83 80 103 50 Q 83 20 48 20 Z" fill="#1e293b" stroke="#94a3b8" stroke-width="3"/>
+                    `;
+                    break;
+                case 'XNOR':
+                    gateShape = `
+                        <path d="M 38 20 Q 58 50 38 80" fill="none" stroke="#94a3b8" stroke-width="3"/>
+                        <path d="M 48 20 Q 68 50 48 80 Q 83 80 101 50 Q 83 20 48 20 Z" fill="#1e293b" stroke="#94a3b8" stroke-width="3"/>
+                        <circle cx="107" cy="50" r="5" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+                    `;
+                    break;
+            }
+
+            // Generate Dynamic Input Lines based on count
+            let inputLines = '';
+            if (count === 1) {
+                const color = activeInputs[0] ? '#3b82f6' : '#475569';
+                inputLines += `<line x1="10" y1="50" x2="50" y2="50" stroke="${color}" stroke-width="4"/><circle cx="10" cy="50" r="4" fill="${color}"/>`;
+            } else {
+                const startY = 25;
+                const endY = 75;
+                const step = (endY - startY) / (count - 1);
+
+                for (let i = 0; i < count; i++) {
+                    const y = startY + (step * i);
+                    const color = activeInputs[i] ? '#3b82f6' : '#475569';
+                    inputLines += `<line x1="10" y1="${y}" x2="48" y2="${y}" stroke="${color}" stroke-width="4"/><circle cx="10" cy="${y}" r="4" fill="${color}"/>`;
+                }
+            }
+
+            return `
+                <svg width="220" height="120" viewBox="0 0 160 100" class="my-2">
+                    ${inputLines}
+                    ${gateShape}
+                    <line x1="105" y1="50" x2="150" y2="50" stroke="${wireOutColor}" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="150" cy="50" r="4" fill="${wireOutColor}"/>
+                </svg>
+            `;
+        }
+
+        // ==========================================
+        // MODE 2: LAB CANVAS & CIRCUIT ENGINE
+        // ==========================================
+        let labNodes = [];
+        let labWires = [];
+        let nextNodeId = 1;
+        let draggingNode = null;
+        let dragOffset = { x: 0, y: 0 };
+        let tempWire = null;
+
+        function addLabNode(type, inputCount = 2, x = 120, y = 120) {
+            const id = 'node_' + nextNodeId++;
+            let inputsArr = [];
+
+            if (type === 'SWITCH' || type === 'CLOCK') {
+                inputsArr = [];
+            } else if (type === 'NOT' || type === 'OUTPUT') {
+                inputsArr = [false];
+            } else {
+                inputsArr = Array(inputCount).fill(false);
+            }
+
+            const node = {
+                id,
+                type,
+                inputCount: type === 'NOT' || type === 'OUTPUT' ? 1 : inputCount,
+                x,
+                y,
+                state: false,
+                inputs: inputsArr,
+                outputs: [false]
+            };
+            labNodes.push(node);
+            renderLabCanvas();
+        }
+
+        function renderLabCanvas() {
+            const nodesLayer = document.getElementById('nodes-layer');
+            const svgWireLayer = document.getElementById('wires-svg');
+
+            // 1. Evaluate Circuit Logic State
+            evaluateLabCircuit();
+
+            // 2. Render Wires SVG
+            let svgContent = '';
+            labWires.forEach((wire, index) => {
+                const fromNode = labNodes.find(n => n.id === wire.fromNode);
+                const toNode = labNodes.find(n => n.id === wire.toNode);
+
+                if (fromNode && toNode) {
+                    const fromPos = getPortPosition(fromNode, 'out', wire.fromPort);
+                    const toPos = getPortPosition(toNode, 'in', wire.toPort);
+
+                    const isHigh = fromNode.outputs[wire.fromPort];
+                    const strokeColor = isHigh ? '#3b82f6' : '#475569';
+
+                    const dx = Math.abs(toPos.x - fromPos.x) * 0.5;
+                    const pathD = `M ${fromPos.x} ${fromPos.y} C ${fromPos.x + dx} ${fromPos.y}, ${toPos.x - dx} ${toPos.y}, ${toPos.x} ${toPos.y}`;
+
+                    svgContent += `
+                        <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="4" class="cursor-pointer hover:stroke-rose-500 transition-colors pointer-events-auto" onclick="deleteWire(${index})" />
+                    `;
+                }
+            });
+
+            if (tempWire) {
+                const dx = Math.abs(tempWire.toX - tempWire.fromX) * 0.5;
+                const pathD = `M ${tempWire.fromX} ${tempWire.fromY} C ${tempWire.fromX + dx} ${tempWire.fromY}, ${tempWire.toX - dx} ${tempWire.toY}, ${tempWire.toX} ${tempWire.toY}`;
+                svgContent += `<path d="${pathD}" fill="none" stroke="#60a5fa" stroke-width="3" stroke-dasharray="4" />`;
+            }
+
+            svgWireLayer.innerHTML = svgContent;
+
+            // 3. Render Node Cards
+            nodesLayer.innerHTML = '';
+            labNodes.forEach(node => {
+                const el = document.createElement('div');
+                const nodeHeight = Math.max(80, node.inputCount * 26);
+                el.className = `absolute pointer-events-auto select-none rounded-xl bg-slate-900 border border-slate-700 shadow-xl flex flex-col items-center justify-between p-3 ${draggingNode === node.id ? 'ring-2 ring-blue-500 z-30' : 'z-20'}`;
+                el.style.left = node.x + 'px';
+                el.style.top = node.y + 'px';
+                el.style.width = '115px';
+                el.style.height = nodeHeight + 'px';
+
+                let nodeContent = '';
+
+                if (node.type === 'SWITCH') {
+                    nodeContent = `
+                        <div class="text-[10px] font-bold text-slate-400">SWITCH</div>
+                        <button onclick="toggleSwitch('${node.id}')" onpointerdown="event.stopPropagation()" class="px-3 py-1.5 rounded-lg text-xs font-mono font-bold ${node.state ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/40' : 'bg-slate-800 text-slate-400'} transition">
+                            ${node.state ? '1 (HIGH)' : '0 (LOW)'}
+                        </button>
+                    `;
+                } else if (node.type === 'CLOCK') {
+                    nodeContent = `
+                        <div class="text-[10px] font-bold text-amber-400">CLOCK</div>
+                        <div class="text-xs font-mono font-bold text-amber-300 animate-pulse">
+                            <i class="fa-solid fa-wave-square mr-1"></i>${node.outputs[0] ? '1' : '0'}
+                        </div>
+                    `;
+                } else if (node.type === 'OUTPUT') {
+                    const isLit = node.inputs[0];
+                    nodeContent = `
+                        <div class="text-[10px] font-bold text-slate-400">LED OUTPUT</div>
+                        <div class="w-7 h-7 rounded-full border-2 ${isLit ? 'border-amber-300 bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.8)]' : 'border-slate-700 bg-slate-800'} transition-all flex items-center justify-center">
+                            <i class="fa-solid fa-lightbulb text-xs ${isLit ? 'text-slate-950' : 'text-slate-600'}"></i>
+                        </div>
+                    `;
+                } else {
+                    nodeContent = `
+                        <div class="text-[10px] font-bold text-blue-400 uppercase tracking-wider">${node.type}</div>
+                        <div class="text-xs font-mono font-bold text-slate-200">${node.inputCount}-IN</div>
+                    `;
+                }
+
+                // Append Input Ports
+                let portsHTML = '';
+                if (node.type !== 'SWITCH' && node.type !== 'CLOCK') {
+                    const count = node.inputCount;
+                    for (let i = 0; i < count; i++) {
+                        const topPercent = count === 1 ? 50 : ((i + 1) / (count + 1)) * 100;
+                        portsHTML += `
+                            <div class="w-4 h-4 bg-slate-700 hover:bg-blue-500 border-2 border-slate-900 rounded-full absolute -left-2 cursor-pointer transition"
+                                 style="top: ${topPercent}%; transform: translateY(-50%);"
+                                 onmousedown="startWire(event, '${node.id}', 'in', ${i})"
+                                 ontouchstart="startWire(event, '${node.id}', 'in', ${i})"></div>
+                        `;
+                    }
+                }
+
+                // Append Output Ports
+                if (node.type !== 'OUTPUT') {
+                    portsHTML += `
+                        <div class="w-4 h-4 bg-blue-600 hover:bg-blue-400 border-2 border-slate-900 rounded-full absolute -right-2 cursor-pointer transition shadow"
+                             style="top: 50%; transform: translateY(-50%);"
+                             onmousedown="startWire(event, '${node.id}', 'out', 0)"
+                             ontouchstart="startWire(event, '${node.id}', 'out', 0)"></div>
+                    `;
+                }
+
+                const deleteBtn = `<button onclick="deleteNode('${node.id}')" onpointerdown="event.stopPropagation()" class="absolute -top-2 -right-2 w-5 h-5 bg-rose-600 hover:bg-rose-500 text-white rounded-full text-[10px] flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>`;
+
+                el.innerHTML = deleteBtn + nodeContent + portsHTML;
+
+                const handleStart = (clientX, clientY, target) => {
+                    if (target.tagName !== 'BUTTON' && !target.classList.contains('cursor-pointer')) {
+                        draggingNode = node.id;
+                        dragOffset.x = clientX - node.x;
+                        dragOffset.y = clientY - node.y;
+                    }
+                };
+
+                el.onmousedown = (e) => handleStart(e.clientX, e.clientY, e.target);
+                el.ontouchstart = (e) => {
+                    if (e.touches && e.touches.length > 0) {
+                        handleStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
+                    }
+                };
+
+                nodesLayer.appendChild(el);
+            });
+        }
+<!-- ... existing code ... &&
+        // Mouse/Touch Drag Wire Event Handlers
+        let wireStart = null;
+
+        function startWire(e, nodeId, portType, portIndex) {
+            e.stopPropagation();
+            if (e.cancelable) e.preventDefault();
+            if (portType === 'out') {
+                const node = labNodes.find(n => n.id === nodeId);
+                const pos = getPortPosition(node, 'out', portIndex);
+                wireStart = { nodeId, portIndex, x: pos.x, y: pos.y };
+            }
+        }
+
+        const labContainer = document.getElementById('lab-canvas-container');
+
+        function handlePointerMove(clientX, clientY) {
+            const rect = labContainer.getBoundingClientRect();
+            const mouseX = clientX - rect.left;
+            const mouseY = clientY - rect.top;
+
+            if (draggingNode) {
+                const node = labNodes.find(n => n.id === draggingNode);
+                if (node) {
+                    node.x = clientX - dragOffset.x;
+                    node.y = clientY - dragOffset.y;
+                    renderLabCanvas();
+                }
+            } else if (wireStart) {
+                tempWire = {
+                    fromX: wireStart.x,
+                    fromY: wireStart.y,
+                    toX: mouseX,
+                    toY: mouseY
+                };
+                renderLabCanvas();
+            }
+        }
+
+        function handlePointerUp(clientX, clientY) {
+            if (draggingNode) {
+                draggingNode = null;
+            }
+
+            if (wireStart) {
+                const rect = labContainer.getBoundingClientRect();
+                const mouseX = clientX - rect.left;
+                const mouseY = clientY - rect.top;
+
+                labNodes.forEach(node => {
+                    if (node.type !== 'SWITCH' && node.type !== 'CLOCK') {
+                        const count = node.inputCount;
+                        for (let i = 0; i < count; i++) {
+                            const pos = getPortPosition(node, 'in', i);
+                            const dist = Math.hypot(pos.x - mouseX, pos.y - mouseY);
+                            if (dist < 28 && node.id !== wireStart.nodeId) {
+                                labWires.push({
+                                    fromNode: wireStart.nodeId,
+                                    fromPort: wireStart.portIndex,
+                                    toNode: node.id,
+                                    toPort: i
+                                });
+                            }
+                        }
+                    }
+                });
+
+                wireStart = null;
+                tempWire = null;
+                renderLabCanvas();
+            }
+        }
+
+        // Mouse Listeners
+        labContainer.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+        labContainer.addEventListener('mouseup', (e) => handlePointerUp(e.clientX, e.clientY));
+
+        // Touch Listeners for KakaoTalk and Mobile Browsers
+        labContainer.addEventListener('touchmove', (e) => {
+            if (e.touches && e.touches.length > 0) {
+                if (draggingNode || wireStart) e.preventDefault();
+                handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
+
+        labContainer.addEventListener('touchend', (e) => {
+            if (e.changedTouches && e.changedTouches.length > 0) {
+                handlePointerUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            }
+        });
+
+        function clearLabCanvas() {
+            labNodes = [];
+            labWires = [];
+            renderLabCanvas();
+        }
+
+        // ==========================================
+        // PRESETS FOR CLASSROOM DEMOS
+        // ==========================================
+        function loadPreset(presetName) {
+            clearLabCanvas();
+
+            if (presetName === 'halfAdder') {
+                addLabNode('SWITCH', 0, 80, 80);   // node_1
+                addLabNode('SWITCH', 0, 80, 220);  // node_2
+
+                addLabNode('XOR', 2, 280, 80);     // node_3
+                addLabNode('AND', 2, 280, 220);    // node_4
+
+                addLabNode('OUTPUT', 1, 480, 80);  // node_5 (Sum)
+                addLabNode('OUTPUT', 1, 480, 220); // node_6 (Carry)
+
+                labWires = [
+                    { fromNode: 'node_1', fromPort: 0, toNode: 'node_3', toPort: 0 },
+                    { fromNode: 'node_2', fromPort: 0, toNode: 'node_3', toPort: 1 },
+                    { fromNode: 'node_1', fromPort: 0, toNode: 'node_4', toPort: 0 },
+                    { fromNode: 'node_2', fromPort: 0, toNode: 'node_4', toPort: 1 },
+                    { fromNode: 'node_3', fromPort: 0, toNode: 'node_5', toPort: 0 },
+                    { fromNode: 'node_4', fromPort: 0, toNode: 'node_6', toPort: 0 }
+                ];
+            } else if (presetName === 'srLatch') {
+                addLabNode('SWITCH', 0, 80, 80);   // Set
+                addLabNode('SWITCH', 0, 80, 240);  // Reset
+
+                addLabNode('NOR', 2, 280, 80);     // NOR 1
+                addLabNode('NOR', 2, 280, 240);    // NOR 2
+
+                addLabNode('OUTPUT', 1, 480, 80);  // Q
+                addLabNode('OUTPUT', 1, 480, 240); // Q'
+
+                labWires = [
+                    { fromNode: 'node_1', fromPort: 0, toNode: 'node_3', toPort: 0 },
+                    { fromNode: 'node_2', fromPort: 0, toNode: 'node_4', toPort: 1 },
+                    { fromNode: 'node_3', fromPort: 0, toNode: 'node_5', toPort: 0 },
+                    { fromNode: 'node_4', fromPort: 0, toNode: 'node_6', toPort: 0 },
+                    { fromNode: 'node_3', fromPort: 0, toNode: 'node_4', toPort: 0 },
+                    { fromNode: 'node_4', fromPort: 0, toNode: 'node_3', toPort: 1 }
+                ];
+            } else if (presetName === 'fullAdder') {
+                addLabNode('SWITCH', 0, 60, 60);  // A
+                addLabNode('SWITCH', 0, 60, 180); // B
+                addLabNode('SWITCH', 0, 60, 300); // Cin
+
+                addLabNode('XOR', 2, 220, 80);
+                addLabNode('XOR', 2, 400, 100);   // Sum
+                addLabNode('AND', 2, 220, 220);
+                addLabNode('AND', 2, 400, 240);
+                addLabNode('OR', 2, 560, 230);    // Cout
+
+                addLabNode('OUTPUT', 1, 560, 100); // Sum LED
+                addLabNode('OUTPUT', 1, 720, 230); // Cout LED
+
+                labWires = [
+                    { fromNode: 'node_1', fromPort: 0, toNode: 'node_4', toPort: 0 },
+                    { fromNode: 'node_2', fromPort: 0, toNode: 'node_4', toPort: 1 },
+                    { fromNode: 'node_4', fromPort: 0, toNode: 'node_5', toPort: 0 },
+                    { fromNode: 'node_3', fromPort: 0, toNode: 'node_5', toPort: 1 },
+                    { fromNode: 'node_5', fromPort: 0, toNode: 'node_9', toPort: 0 },
+
+                    { fromNode: 'node_1', fromPort: 0, toNode: 'node_6', toPort: 0 },
+                    { fromNode: 'node_2', fromPort: 0, toNode: 'node_6', toPort: 1 },
+                    { fromNode: 'node_4', fromPort: 0, toNode: 'node_7', toPort: 0 },
+                    { fromNode: 'node_3', fromPort: 0, toNode: 'node_7', toPort: 1 },
+
+                    { fromNode: 'node_6', fromPort: 0, toNode: 'node_8', toPort: 1 },
+                    { fromNode: 'node_7', fromPort: 0, toNode: 'node_8', toPort: 0 },
+                    { fromNode: 'node_8', fromPort: 0, toNode: 'node_10', toPort: 0 }
+                ];
+            }
+
+            renderLabCanvas();
+        }
+
+        // ==========================================
+        // CLOCK PULSE GENERATOR
+        // ==========================================
+        let clockState = false;
+        setInterval(() => {
+            clockState = !clockState;
+            if (!document.getElementById('mode-lab').classList.contains('hidden')) {
+                renderLabCanvas();
+            }
+        }, 1000);
+
+        // Modal Helpers
+        function openHelpModal() {
+            document.getElementById('modal-help').classList.remove('hidden');
+        }
+        function closeHelpModal() {
+            document.getElementById('modal-help').classList.add('hidden');
+        }
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        window.onload = function() {
+            initLearningMode();
+            loadPreset('halfAdder');
+        };
+    </script>
+</body>
+</html>
