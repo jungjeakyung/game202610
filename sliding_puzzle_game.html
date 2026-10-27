@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 이미지 슬라이딩 퍼즐 게임</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti for victory effect -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap');
+        body {
+            font-family: 'Pretendard', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        .puzzle-piece {
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen min-h-[100dvh] flex flex-col justify-between p-3 sm:p-5 md:p-8 overflow-x-hidden">
+
+    <!-- Header & Navigation -->
+    <header class="w-full max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 sm:mb-6">
+        <div class="text-center sm:text-left">
+            <h1 class="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300 bg-clip-text text-transparent flex items-center justify-center sm:justify-start gap-2">
+                <i class="fa-solid font-normal fa-puzzle-piece text-pink-400"></i>AI 슬라이딩 퍼즐
+            </h1>
+            <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5">AI로 생성된 고화질 일러스트로 즐기는 단계별 퍼즐</p>
+        </div>
+
+        <!-- Controls / Actions -->
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-center">
+            <button id="btnNewImage" class="flex-1 sm:flex-none px-3.5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-semibold shadow-lg shadow-purple-900/40 transition active:scale-95 text-xs sm:text-sm flex items-center justify-center gap-1.5 active:bg-purple-700">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> <span>새 이미지 AI 생성</span>
+            </button>
+            <button id="btnHint" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-700 text-slate-200 rounded-xl font-medium border border-slate-700 transition text-xs sm:text-sm flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-eye text-amber-400"></i> <span id="hintBtnText">원본 보기</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-4xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-center gap-5 sm:gap-8 my-auto">
+        
+        <!-- Left: Game Area & Puzzle Canvas -->
+        <div class="flex flex-col items-center gap-3 sm:gap-4 w-full max-w-md mx-auto">
+            
+            <!-- Game Info Bar -->
+            <div class="w-full bg-slate-800/90 backdrop-blur border border-slate-700/60 rounded-2xl p-3 sm:p-4 flex justify-around items-center text-center shadow-lg">
+                <div>
+                    <div class="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider font-semibold">단계</div>
+                    <div id="levelDisplay" class="text-base sm:text-lg font-bold text-purple-400">Lv 1 (2x2)</div>
+                </div>
+                <div class="h-7 sm:h-8 w-px bg-slate-700/80"></div>
+                <div>
+                    <div class="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider font-semibold">시간</div>
+                    <div id="timerDisplay" class="text-base sm:text-lg font-bold text-amber-400">00:00</div>
+                </div>
+                <div class="h-7 sm:h-8 w-px bg-slate-700/80"></div>
+                <div>
+                    <div class="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider font-semibold">이동</div>
+                    <div id="movesDisplay" class="text-base sm:text-lg font-bold text-emerald-400">0회</div>
+                </div>
+            </div>
+
+            <!-- Puzzle Board Container -->
+            <div class="relative w-full aspect-square max-w-[92vw] sm:max-w-none bg-slate-800 border-2 border-slate-700/80 rounded-2xl overflow-hidden shadow-2xl p-1.5 sm:p-2 flex items-center justify-center touch-none">
+                
+                <!-- Loading Overlay -->
+                <div id="loadingOverlay" class="absolute inset-0 z-30 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center gap-3">
+                    <div class="relative w-12 h-12 sm:w-16 sm:h-16">
+                        <div class="absolute inset-0 rounded-full border-4 border-purple-500/20"></div>
+                        <div class="absolute inset-0 rounded-full border-4 border-purple-500 border-t-transparent animate-spin"></div>
+                    </div>
+                    <div>
+                        <div id="loadingTitle" class="text-base sm:text-lg font-bold text-purple-300">AI가 퍼즐 이미지를 생성 중입니다...</div>
+                        <div id="loadingSubtitle" class="text-xs text-slate-400 mt-1">동화 속 판타지 수채화 풍경을 그리는 중...</div>
+                    </div>
+                </div>
+
+                <!-- Original Image Overlay (Hint) -->
+                <div id="hintOverlay" class="absolute inset-0 z-20 bg-slate-900/95 p-3 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+                    <img id="hintImage" src="" alt="원본 힌트" class="w-full h-full object-contain rounded-xl shadow-md">
+                    <span class="absolute bottom-4 bg-slate-800/90 text-slate-200 text-xs px-3 py-1.5 rounded-full border border-slate-600 shadow">
+                        터치 시 퍼즐로 돌아가기
+                    </span>
+                </div>
+
+                <!-- Victory Overlay -->
+                <div id="victoryOverlay" class="absolute inset-0 z-20 bg-slate-900/95 backdrop-blur-sm p-5 sm:p-6 flex flex-col items-center justify-center text-center gap-3 sm:gap-4 hidden">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center text-2xl sm:text-3xl mb-1 animate-bounce">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                    <h2 class="text-xl sm:text-2xl font-black text-white">단계 클리어! 🎉</h2>
+                    <p id="victoryStats" class="text-slate-300 text-xs sm:text-sm">
+                        기록: <span class="text-amber-400 font-semibold" id="finalTime">00:00</span> / <span class="text-emerald-400 font-semibold" id="finalMoves">0회</span>
+                    </p>
+                    <div class="flex gap-2.5 sm:gap-3 mt-2 w-full justify-center">
+                        <button id="btnRestartLevel" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 active:bg-slate-600 text-slate-200 rounded-xl text-xs sm:text-sm font-semibold transition">
+                            다시 하기
+                        </button>
+                        <button id="btnNextLevel" class="px-4 sm:px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-emerald-900/40 transition">
+                            다음 단계 도전 <i class="fa-solid fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Actual Puzzle Grid Board -->
+                <div id="puzzleBoard" class="relative w-full h-full rounded-xl overflow-hidden bg-slate-950">
+                    <!-- Dynamic Puzzle Pieces will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Puzzle Controls Footer -->
+            <div class="flex w-full justify-between items-center px-1 text-slate-400">
+                <button id="btnShuffle" class="text-xs hover:text-slate-200 active:text-purple-400 flex items-center gap-1.5 py-1 transition">
+                    <i class="fa-solid fa-rotate-right"></i> 다시 섞기
+                </button>
+                <div class="text-[11px] sm:text-xs text-slate-500">
+                    빈칸 옆 조각을 터치하여 이동
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Level Selector & Prompt Customization -->
+        <div class="w-full max-w-md flex flex-col gap-4 sm:gap-5 mx-auto">
+            
+            <!-- Level Selector Card -->
+            <div class="bg-slate-800/80 backdrop-blur border border-slate-700/60 rounded-2xl p-4 sm:p-5 shadow-lg">
+                <h3 class="text-sm sm:text-base font-bold text-slate-200 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-purple-400"></i> 퍼즐 난이도 선택 (총 5단계)
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2" id="levelButtonsContainer">
+                    <!-- Generated via JS -->
+                </div>
+            </div>
+
+            <!-- Custom Prompt / Image Settings Card -->
+            <div class="bg-slate-800/80 backdrop-blur border border-slate-700/60 rounded-2xl p-4 sm:p-5 shadow-lg">
+                <h3 class="text-sm sm:text-base font-bold text-slate-200 mb-2.5 flex items-center gap-2">
+                    <i class="fa-solid fa-image text-pink-400"></i> AI 프롬프트 커스텀
+                </h3>
+                <p class="text-xs text-slate-400 mb-3">
+                    원하는 주제의 이미지 설명을 입력하여 새 이미지를 받아 퍼즐을 완성해 보세요.
+                </p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-[11px] sm:text-xs font-semibold text-slate-300 mb-1">이미지 설명 (프롬프트)</label>
+                        <textarea id="promptInput" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-purple-500 transition resize-none" placeholder="예: 판타지 마을, 수채화 일러스트, 디테일한 건물과 꽃밭"></textarea>
+                    </div>
+
+                    <!-- Quick Preset Prompts -->
+                    <div>
+                        <div class="text-[11px] text-slate-400 mb-1.5">추천 카테고리:</div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button class="preset-btn text-[11px] px-2.5 py-1.5 bg-slate-700/60 active:bg-purple-900/60 hover:bg-purple-900/40 hover:text-purple-300 text-slate-300 rounded-lg border border-slate-600/50 transition touch-manipulation" data-prompt="A whimsical fairytale village with colorful cottages, vibrant flower gardens, sunny sky, detailed watercolor illustration style">
+                                🏡 동화 마을
+                            </button>
+                            <button class="preset-btn text-[11px] px-2.5 py-1.5 bg-slate-700/60 active:bg-purple-900/60 hover:bg-purple-900/40 hover:text-purple-300 text-slate-300 rounded-lg border border-slate-600/50 transition touch-manipulation" data-prompt="A breathtaking fantasy floating island with glowing waterfalls, ancient magic ruins, anime artwork, highly detailed">
+                                🌌 판타지 섬
+                            </button>
+                            <button class="preset-btn text-[11px] px-2.5 py-1.5 bg-slate-700/60 active:bg-purple-900/60 hover:bg-purple-900/40 hover:text-purple-300 text-slate-300 rounded-lg border border-slate-600/50 transition touch-manipulation" data-prompt="A cozy cafe filled with books, cats, warm sunlight streaming through windows, soft pastel oil painting style">
+                                ☕ 아늑한 카페
+                            </button>
+                            <button class="preset-btn text-[11px] px-2.5 py-1.5 bg-slate-700/60 active:bg-purple-900/60 hover:bg-purple-900/40 hover:text-purple-300 text-slate-300 rounded-lg border border-slate-600/50 transition touch-manipulation" data-prompt="A futuristic cyberpunk city with neon lights, flying cars, rainy night reflection, detailed digital art">
+                                🏙️ 사이버펑크
+                            </button>
+                        </div>
+                    </div>
+
+                    <button id="btnGenerateCustom" class="w-full py-2.5 bg-slate-700 hover:bg-purple-600 active:bg-purple-700 text-white rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-arrows-rotate"></i> 이 프롬프트로 이미지 새로 생성
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-6 text-center text-[11px] text-slate-500 py-2">
+        AI Sliding Puzzle Game &copy; Powered by Gemini AI Image Generation
+    </footer>
+
+    <!-- Main Logic Script -->
+    <script>
+        // --- LEVEL CONFIGURATION ---
+        const LEVELS = [
+            { level: 1, grid: 2, name: '입문', desc: '4조각 (2x2) - 기초 규칙 익히기' },
+            { level: 2, grid: 3, name: '초급', desc: '9조각 (3x3) - 클래식 퍼즐' },
+            { level: 3, grid: 4, name: '중급', desc: '16조각 (4x4) - 적절한 두뇌 회전' },
+            { level: 4, grid: 5, name: '상급', desc: '25조각 (5x5) - 높은 집중력' },
+            { level: 5, grid: 6, name: '달인', desc: '36조각 (6x6) - 퍼즐의 달인' }
+        ];
+
+        // Default Prompt for initial image generation
+        const DEFAULT_PROMPT = "A whimsical fairytale village with colorful cottages, vibrant flower gardens, crystal stream, sunny sky, detailed watercolor illustration style";
+
+        // State variables
+        let currentLevelIndex = 0; // Starts at Lv 1 (2x2)
+        let currentGridSize = 2;
+        let currentImageUrl = '';
+        let pieces = []; // Array storing current positions
+        let emptyPos = { r: 0, c: 0 };
+        let movesCount = 0;
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let isGameActive = false;
+        let isGeneratingImage = false;
+
+        // Elements
+        const puzzleBoard = document.getElementById('puzzleBoard');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const hintOverlay = document.getElementById('hintOverlay');
+        const hintImage = document.getElementById('hintImage');
+        const victoryOverlay = document.getElementById('victoryOverlay');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const movesDisplay = document.getElementById('movesDisplay');
+        const promptInput = document.getElementById('promptInput');
+        const btnNewImage = document.getElementById('btnNewImage');
+        const btnGenerateCustom = document.getElementById('btnGenerateCustom');
+        const btnHint = document.getElementById('btnHint');
+        const hintBtnText = document.getElementById('hintBtnText');
+        const btnShuffle = document.getElementById('btnShuffle');
+        const btnRestartLevel = document.getElementById('btnRestartLevel');
+        const btnNextLevel = document.getElementById('btnNextLevel');
+        const levelButtonsContainer = document.getElementById('levelButtonsContainer');
+
+        // Initial setup
+        window.onload = () => {
+            promptInput.value = DEFAULT_PROMPT;
+            renderLevelButtons();
+            // Start by generating initial image
+            generateAIImage(DEFAULT_PROMPT);
+        };
+
+        // --- LEVEL BUTTONS UI ---
+        function renderLevelButtons() {
+            levelButtonsContainer.innerHTML = '';
+            LEVELS.forEach((lvl, idx) => {
+                const isCurrent = idx === currentLevelIndex;
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-2.5 sm:p-3 rounded-xl border transition flex items-center justify-between touch-manipulation ${
+                    isCurrent 
+                    ? 'bg-purple-900/50 border-purple-500/80 text-white shadow-md' 
+                    : 'bg-slate-900/60 border-slate-700/60 text-slate-300 hover:bg-slate-700/50 active:bg-slate-700/70'
+                }`;
+                btn.onclick = () => selectLevel(idx);
+                
+                btn.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${isCurrent ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'} flex items-center justify-center font-bold text-xs shrink-0">
+                            ${lvl.grid}x${lvl.grid}
+                        </div>
+                        <div>
+                            <div class="font-bold text-xs ${isCurrent ? 'text-purple-300' : 'text-slate-200'}">
+                                레벨 ${lvl.level}: ${lvl.name}
+                            </div>
+                            <div class="text-[10px] sm:text-[11px] text-slate-400">${lvl.desc}</div>
+                        </div>
+                    </div>
+                    ${isCurrent ? '<i class="fa-solid fa-check text-purple-400 text-xs"></i>' : ''}
+                `;
+                levelButtonsContainer.appendChild(btn);
+            });
+        }
+
+        function selectLevel(idx) {
+            if (currentLevelIndex === idx && isGameActive) return;
+            currentLevelIndex = idx;
+            currentGridSize = LEVELS[idx].grid;
+            renderLevelButtons();
+            resetAndStartPuzzle();
+        }
+
+        // --- GEMINI IMAGE GENERATION API ---
+        async function generateAIImage(promptText) {
+            if (isGeneratingImage) return;
+            isGeneratingImage = true;
+
+            showLoading(true, "AI가 고화질 이미지를 그리는 중...", "잠시만 기다려 주세요 (약 3~5초 소요)");
+
+            try {
+                // Call Gemini 3.1 Flash Image Model API
+                const apiKey = ""; // Canvas runtime environment automatically inserts API Key when empty
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: [{
+                        parts: [{ text: promptText + ", high quality, colorful detail, puzzle backdrop" }]
+                    }],
+                    generationConfig: {
+                        responseModalities: ['IMAGE'],
+                        imageConfig: { aspectRatio: "1:1" } // Square aspect ratio is ideal for sliding puzzle
+                    }
+                };
+
+                let response = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                let result = await response.json();
+                let base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+                if (base64Data) {
+                    currentImageUrl = `data:image/png;base64,${base64Data}`;
+                } else {
+                    throw new Error("이미지 데이터 수신 실패");
+                }
+            } catch (err) {
+                console.warn("API 이미지 생성 실패, 대체 고화질 일러스트 사용:", err);
+                // Fallback high quality placeholder image if network/API fails
+                currentImageUrl = "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=800&auto=format&fit=crop";
+            } finally {
+                isGeneratingImage = false;
+                hintImage.src = currentImageUrl;
+                showLoading(false);
+                resetAndStartPuzzle();
+            }
+        }
+
+        // Fetch with exponential backoff for robustness
+        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+            try {
+                const res = await fetch(url, options);
+                if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+                return res;
+            } catch (err) {
+                if (retries > 0) {
+                    await new Promise(r => setTimeout(r, delay));
+                    return fetchWithRetry(url, options, retries - 1, delay * 2);
+                }
+                throw err;
+            }
+        }
+
+        // --- PUZZLE GAME ENGINE ---
+        function resetAndStartPuzzle() {
+            victoryOverlay.classList.add('hidden');
+            hideHint();
+            stopTimer();
+            
+            movesCount = 0;
+            secondsElapsed = 0;
+            updateStatsUI();
+            
+            const lvl = LEVELS[currentLevelIndex];
+            levelDisplay.innerText = `Lv ${lvl.level} (${lvl.grid}x${lvl.grid})`;
+
+            // Generate solvably shuffled board
+            initPuzzleGrid(lvl.grid);
+            startTimer();
+            isGameActive = true;
+        }
+
+        function initPuzzleGrid(gridSize) {
+            const total = gridSize * gridSize;
+            
+            // Generate board state: 0 to total-1, where total-1 is the empty slot
+            let boardState = Array.from({ length: total }, (_, i) => i);
+            
+            // Shuffle board state with guaranteed solvable parity
+            do {
+                shuffleArray(boardState);
+            } while (!isSolvable(boardState, gridSize) || isAlreadySolved(boardState));
+
+            // Populate state structure
+            pieces = [];
+            puzzleBoard.innerHTML = '';
+
+            const piecePercent = 100 / gridSize;
+
+            for (let i = 0; i < total; i++) {
+                const val = boardState[i];
+                const currentR = Math.floor(i / gridSize);
+                const currentC = i % gridSize;
+
+                if (val === total - 1) {
+                    // Empty piece
+                    emptyPos = { r: currentR, c: currentC };
+                    pieces.push({ val: val, targetR: Math.floor(val / gridSize), targetC: val % gridSize, isBlank: true });
+                } else {
+                    const targetR = Math.floor(val / gridSize);
+                    const targetC = val % gridSize;
+
+                    // Create Piece Element
+                    const pieceEl = document.createElement('div');
+                    pieceEl.className = 'puzzle-piece absolute cursor-pointer rounded-md sm:rounded-lg border border-white/20 shadow-inner overflow-hidden active:brightness-125 hover:brightness-110';
+                    pieceEl.id = `piece-${val}`;
+                    
+                    // Set size and position
+                    pieceEl.style.width = `${piecePercent}%`;
+                    pieceEl.style.height = `${piecePercent}%`;
+                    updatePiecePosition(pieceEl, currentR, currentC, piecePercent);
+
+                    // Set Background Image offset
+                    pieceEl.style.backgroundImage = `url('${currentImageUrl}')`;
+                    pieceEl.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+                    pieceEl.style.backgroundPosition = `${(targetC / (gridSize - 1)) * 100}% ${(targetR / (gridSize - 1)) * 100}%`;
+
+                    // Touch / Click event to move piece seamlessly on mobile
+                    pieceEl.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        handlePieceClick(val);
+                    });
+
+                    puzzleBoard.appendChild(pieceEl);
+
+                    pieces.push({
+                        val: val,
+                        targetR: targetR,
+                        targetC: targetC,
+                        currentR: currentR,
+                        currentC: currentC,
+                        isBlank: false,
+                        el: pieceEl
+                    });
+                }
+            }
+        }
+
+        function updatePiecePosition(el, r, c, percent) {
+            el.style.top = `${r * percent}%`;
+            el.style.left = `${c * percent}%`;
+        }
+
+        function handlePieceClick(val) {
+            if (!isGameActive) return;
+
+            const piece = pieces.find(p => p.val === val);
+            if (!piece) return;
+
+            // Check if adjacent to empty position
+            const dr = Math.abs(piece.currentR - emptyPos.r);
+            const dc = Math.abs(piece.currentC - emptyPos.c);
+
+            if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+                // Swap piece and empty slot
+                const tempR = piece.currentR;
+                const tempC = piece.currentC;
+
+                piece.currentR = emptyPos.r;
+                piece.currentC = emptyPos.c;
+
+                emptyPos.r = tempR;
+                emptyPos.c = tempC;
+
+                const percent = 100 / currentGridSize;
+                updatePiecePosition(piece.el, piece.currentR, piece.currentC, percent);
+
+                movesCount++;
+                updateStatsUI();
+
+                // Check victory condition
+                checkVictory();
+            }
+        }
+
+        function checkVictory() {
+            const isSolved = pieces.every(p => {
+                if (p.isBlank) return true;
+                return p.currentR === p.targetR && p.currentC === p.targetC;
+            });
+
+            if (isSolved) {
+                isGameActive = false;
+                stopTimer();
+                setTimeout(triggerVictorySequence, 300);
+            }
+        }
+
+        function triggerVictorySequence() {
+            // Victory Confetti
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            document.getElementById('finalTime').innerText = formatTime(secondsElapsed);
+            document.getElementById('finalMoves').innerText = `${movesCount}회`;
+            victoryOverlay.classList.remove('hidden');
+        }
+
+        // --- SOLVABILITY CHECK ALGORITHM ---
+        // For N x N sliding puzzles:
+        // 1. If N is odd, inversions count must be even.
+        // 2. If N is even, (inversions count + blank row from bottom) must be even.
+        function isSolvable(arr, grid) {
+            let inversions = 0;
+            const total = grid * grid;
+            const blankVal = total - 1;
+
+            for (let i = 0; i < total - 1; i++) {
+                for (let j = i + 1; j < total; j++) {
+                    if (arr[i] !== blankVal && arr[j] !== blankVal && arr[i] > arr[j]) {
+                        inversions++;
+                    }
+                }
+            }
+
+            if (grid % 2 !== 0) {
+                return inversions % 2 === 0;
+            } else {
+                const blankIndex = arr.indexOf(blankVal);
+                const blankRowFromBottom = grid - Math.floor(blankIndex / grid);
+                return (inversions + blankRowFromBottom) % 2 === 0;
+            }
+        }
+
+        function isAlreadySolved(arr) {
+            for (let i = 0; i < arr.length; i++) {
+                if (arr[i] !== i) return false;
+            }
+            return true;
+        }
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        // --- TIMER & UI UPDATES ---
+        function startTimer() {
+            stopTimer();
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                timerDisplay.innerText = formatTime(secondsElapsed);
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateStatsUI() {
+            movesDisplay.innerText = `${movesCount}회`;
+            timerDisplay.innerText = formatTime(secondsElapsed);
+        }
+
+        function showLoading(show, title = '', subtitle = '') {
+            if (show) {
+                if (title) document.getElementById('loadingTitle').innerText = title;
+                if (subtitle) document.getElementById('loadingSubtitle').innerText = subtitle;
+                loadingOverlay.classList.remove('hidden');
+            } else {
+                loadingOverlay.classList.add('hidden');
+            }
+        }
+
+        // --- HINT FUNCTIONALITY ---
+        function toggleHint() {
+            if (hintOverlay.classList.contains('opacity-0')) {
+                showHint();
+            } else {
+                hideHint();
+            }
+        }
+
+        function showHint() {
+            hintOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            hintBtnText.innerText = '퍼즐로 돌아가기';
+        }
+
+        function hideHint() {
+            hintOverlay.classList.add('opacity-0', 'pointer-events-none');
+            hintBtnText.innerText = '원본 보기';
+        }
+
+        // --- EVENT LISTENERS ---
+        btnNewImage.onclick = () => {
+            const prompt = promptInput.value.trim() || DEFAULT_PROMPT;
+            generateAIImage(prompt);
+        };
+
+        btnGenerateCustom.onclick = () => {
+            const prompt = promptInput.value.trim() || DEFAULT_PROMPT;
+            generateAIImage(prompt);
+        };
+
+        btnHint.onclick = toggleHint;
+        hintOverlay.onclick = hideHint;
+
+        // Window resize event handler to recalculate layout seamlessly
+        window.addEventListener('resize', () => {
+            if (pieces.length > 0 && currentGridSize) {
+                const percent = 100 / currentGridSize;
+                pieces.forEach(p => {
+                    if (!p.isBlank && p.el) {
+                        updatePiecePosition(p.el, p.currentR, p.currentC, percent);
+                    }
+                });
+            }
+        });
+
+        btnShuffle.onclick = () => resetAndStartPuzzle();
+
+        btnRestartLevel.onclick = () => resetAndStartPuzzle();
+
+        btnNextLevel.onclick = () => {
+            if (currentLevelIndex < LEVELS.length - 1) {
+                selectLevel(currentLevelIndex + 1);
+            } else {
+                // Already at max level, restart Lv 1
+                selectLevel(0);
+            }
+        };
+
+        // Preset Prompt button handlers
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                const prompt = e.currentTarget.getAttribute('data-prompt');
+                promptInput.value = prompt;
+                generateAIImage(prompt);
+            };
+        });
+    </script>
+</body>
+</html>
